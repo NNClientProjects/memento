@@ -158,24 +158,26 @@ export default async function SetupPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">Setup</h1>
-        <p className="mt-0.5 text-sm text-zinc-500">
-          Admin actions and app health.
+      <header className="mb-6">
+        <h1 className="text-3xl font-semibold tracking-tight">Setup</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          App health and admin actions.
         </p>
       </header>
 
-      <section className="mb-5 rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <section className="mb-6 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-900">
           {status.map((s) => (
             <li
               key={s.label}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm"
+              className="flex items-center gap-3 px-4 py-3 text-sm"
             >
               <StatusDot state={s.state} />
               <span className="font-medium">{s.label}</span>
               {s.detail && (
-                <span className="text-xs text-zinc-500">{s.detail}</span>
+                <span className="ml-auto truncate text-xs text-zinc-500">
+                  {s.detail}
+                </span>
               )}
             </li>
           ))}
@@ -204,8 +206,8 @@ export default async function SetupPage() {
         </section>
       )}
 
-      <details className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <summary className="cursor-pointer px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-400">
+      <details className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+        <summary className="cursor-pointer px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
           Environment variable status {hasErrors && '(some required keys missing)'}
         </summary>
         <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
@@ -280,8 +282,8 @@ function LastSyncCard({ run }: { run: SyncRun | null }) {
       : false;
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+      <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50/60 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
         <span className="text-sm font-medium">Last sync</span>
         <span className="font-mono text-xs text-zinc-500">
           {new Date(run.started_at).toLocaleString()} · {run.status}

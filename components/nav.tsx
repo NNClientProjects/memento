@@ -2,47 +2,40 @@ import Link from 'next/link';
 import { authConfigured } from '@/lib/auth-cookie';
 import { LogoutButton } from './logout-button';
 
+const navItems = [
+  { href: '/participants', label: 'Participants' },
+  { href: '/templates', label: 'Templates' },
+  { href: '/communications', label: 'Sent' },
+  { href: '/inbox', label: 'Inbox' },
+  { href: '/setup', label: 'Setup' },
+];
+
 export function Nav() {
   return (
-    <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
+    <nav className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
+      <div className="mx-auto flex max-w-7xl items-center gap-2 px-6 py-3 sm:gap-6">
         <Link
           href="/participants"
-          className="text-base font-semibold tracking-tight"
+          className="flex items-center gap-2 text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
         >
+          <span
+            className="grid h-7 w-7 place-items-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm"
+            aria-hidden="true"
+          >
+            M
+          </span>
           Memento
         </Link>
-        <div className="flex items-center gap-5 text-sm text-zinc-600 dark:text-zinc-400">
-          <Link
-            href="/participants"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Participants
-          </Link>
-          <Link
-            href="/templates"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Templates
-          </Link>
-          <Link
-            href="/communications"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Sent
-          </Link>
-          <Link
-            href="/inbox"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Inbox
-          </Link>
-          <Link
-            href="/setup"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Setup
-          </Link>
+        <div className="flex items-center gap-1 text-sm">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-md px-2.5 py-1.5 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100"
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
         {authConfigured() && (
           <div className="ml-auto">

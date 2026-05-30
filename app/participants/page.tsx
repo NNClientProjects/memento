@@ -124,25 +124,31 @@ export default async function ParticipantsPage({
   const sendHref = `/participants/send${buildSearchParams(sp)}`;
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-6">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <main className="mx-auto max-w-7xl px-6 py-8">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Participants</h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            {rows.length} {rows.length === 1 ? 'person' : 'people'} match
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight">Participants</h1>
+            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium tabular-nums text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900">
+              {rows.length}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            {rows.length === 1 ? 'person' : 'people'} match these filters
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href={sendHref}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
               rows.length === 0
                 ? 'cursor-not-allowed bg-zinc-200 text-zinc-500 dark:bg-zinc-800'
-                : 'bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300'
+                : 'bg-indigo-600 text-white hover:bg-indigo-500'
             }`}
             aria-disabled={rows.length === 0}
           >
-            Send email →
+            Send email
+            <span aria-hidden="true">→</span>
           </Link>
         </div>
       </header>
@@ -182,27 +188,40 @@ export default async function ParticipantsPage({
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          No participants match these filters.
-        </p>
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-12 text-center dark:border-zinc-700 dark:bg-zinc-900/30">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-800">
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 21a6 6 0 0 0-12 0" />
+              <circle cx="12" cy="11" r="4" />
+              <path d="m21 21-3-3" />
+            </svg>
+          </div>
+          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            No participants match
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Try clearing some filters, or sync the master sheet.
+          </p>
+        </div>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900/80">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="px-4 py-2.5 font-medium">Contact</th>
-                <th className="px-4 py-2.5 font-medium">Dorm / Section</th>
-                <th className="px-4 py-2.5 font-medium">Family</th>
-                <th className="px-4 py-2.5 font-medium">Lifecycle</th>
-                <th className="px-4 py-2.5 font-medium">Payment</th>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Contact</th>
+                <th className="px-4 py-3 font-medium">Dorm / Section</th>
+                <th className="px-4 py-3 font-medium">Family</th>
+                <th className="px-4 py-3 font-medium">Lifecycle</th>
+                <th className="px-4 py-3 font-medium">Payment</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
               {rows.map((p) => (
                 <tr
                   key={p.id}
-                  className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                  className="transition-colors hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
                 >
                   <td className="px-4 py-2.5">
                     <Link
@@ -271,6 +290,7 @@ export default async function ParticipantsPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </main>
@@ -289,7 +309,7 @@ function FilterBar({
   return (
     <form
       method="GET"
-      className="rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-900/30"
+      className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40"
     >
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
         <label className="text-sm lg:col-span-2">
@@ -299,7 +319,7 @@ function FilterBar({
             name="q"
             defaultValue={filters.q ?? ''}
             placeholder="Name or email…"
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
           />
         </label>
 
@@ -308,7 +328,7 @@ function FilterBar({
           <select
             name="stage"
             defaultValue={filters.stages?.[0] ?? ''}
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="">Any</option>
             {LIFECYCLE_STAGES.map((s) => (
@@ -324,7 +344,7 @@ function FilterBar({
           <select
             name="payment"
             defaultValue={filters.payments?.[0] ?? ''}
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="">Any</option>
             {PAYMENT_STATUSES.map((p) => (
@@ -340,7 +360,7 @@ function FilterBar({
           <select
             name="dorm"
             defaultValue={filters.dorm ?? ''}
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="">Any</option>
             {availableDorms.map((d) => (
@@ -356,7 +376,7 @@ function FilterBar({
           <select
             name="section"
             defaultValue={filters.section ?? ''}
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="">Any</option>
             {availableSections.map((s) => (
@@ -411,15 +431,15 @@ function FilterBar({
         <div className="ml-auto flex gap-2">
           <a
             href="/participants"
-            className="rounded-md border border-zinc-300 px-3 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
           >
             Reset
           </a>
           <button
             type="submit"
-            className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-500"
           >
-            Apply
+            Apply filters
           </button>
         </div>
       </div>

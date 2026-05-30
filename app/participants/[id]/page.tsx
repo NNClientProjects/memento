@@ -71,27 +71,47 @@ export default async function ParticipantDetailPage({
       ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=0&range=A${p.sheet_row_number}`
       : null;
 
+  const initials = p.full_name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-8">
       <nav className="mb-4 text-sm text-zinc-500">
-        <Link href="/participants" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-          ← Participants
+        <Link
+          href="/participants"
+          className="inline-flex items-center gap-1 hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          <span aria-hidden="true">←</span> Participants
         </Link>
       </nav>
 
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{p.full_name}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <LifecycleBadge stage={p.lifecycle_stage} />
-          <PaymentBadge status={p.payment_status} />
-          {p.family_group_id && (
-            <Link
-              href={`/participants?family_group_id=${encodeURIComponent(p.family_group_id)}`}
-              className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-            >
-              {p.family_group_id}
-            </Link>
-          )}
+      <header className="mb-6 flex items-center gap-4">
+        <span
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-base font-semibold text-white shadow-md shadow-indigo-600/20"
+          aria-hidden="true"
+        >
+          {initials}
+        </span>
+        <div className="min-w-0">
+          <h1 className="truncate text-3xl font-semibold tracking-tight">
+            {p.full_name}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <LifecycleBadge stage={p.lifecycle_stage} />
+            <PaymentBadge status={p.payment_status} />
+            {p.family_group_id && (
+              <Link
+                href={`/participants?family_group_id=${encodeURIComponent(p.family_group_id)}`}
+                className="rounded-md bg-indigo-50 px-2 py-0.5 font-mono text-xs text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900"
+              >
+                {p.family_group_id}
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
@@ -453,8 +473,8 @@ export default async function ParticipantDetailPage({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mb-6 rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <h2 className="border-b border-zinc-200 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800">
+    <section className="mb-6 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+      <h2 className="border-b border-zinc-200 bg-zinc-50/60 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
         {title}
       </h2>
       <dl className="divide-y divide-zinc-100 dark:divide-zinc-900">{children}</dl>

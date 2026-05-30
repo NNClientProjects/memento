@@ -10,10 +10,10 @@ export function LoginForm({ next }: { next: string }) {
   );
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       <input type="hidden" name="next" value={next} />
       <label className="block">
-        <span className="block text-xs uppercase tracking-wider text-zinc-500">
+        <span className="block text-xs font-medium uppercase tracking-wider text-zinc-500">
           Password
         </span>
         <input
@@ -22,13 +22,13 @@ export function LoginForm({ next }: { next: string }) {
           required
           autoFocus
           autoComplete="current-password"
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          className="mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
         />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-50"
       >
         {pending ? 'Signing in…' : 'Sign in'}
       </button>
