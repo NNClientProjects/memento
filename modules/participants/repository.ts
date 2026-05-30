@@ -2,6 +2,35 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import type { LifecycleStage, PaymentStatus } from '@/lib/lifecycle';
 import type { Participant, ReunionAttendee } from './types';
 
+export async function listDistinctDormsAndSections(
+  eventId: string
+): Promise<{ dorms: string[]; sections: string[] }> {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
+    .from('participants')
+    .select('reunion:reunion_attendees(dorm, section)')
+    .eq('event_id', eventId);
+  if (error) throw error;
+
+  const dorms = new Set<string>();
+  const sections = new Set<string>();
+  type Row = {
+    reunion:
+      | { dorm: string | null; section: string | null }
+      | Array<{ dorm: string | null; section: string | null }>
+      | null;
+  };
+  for (const raw of (data ?? []) as Row[]) {
+    const r = Array.isArray(raw.reunion) ? raw.reunion[0] : raw.reunion;
+    if (r?.dorm) dorms.add(r.dorm.trim());
+    if (r?.section) sections.add(r.section.trim());
+  }
+  return {
+    dorms: Array.from(dorms).sort(),
+    sections: Array.from(sections).sort(),
+  };
+}
+
 export async function listParticipants(eventId: string): Promise<Participant[]> {
   const db = getSupabaseAdmin();
   const { data, error } = await db
