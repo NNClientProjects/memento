@@ -17,17 +17,15 @@ import {
 } from '@/modules/communications/repository';
 import { participantMergeContext } from '@/modules/communications/send';
 import { listOptOutsForParticipant } from '@/modules/communications/opt-out';
+import { listStages } from '@/modules/stages/repository';
 import { getCurrentEvent } from '@/lib/event-context';
 import { SendEmailPanel } from '@/components/send-email-panel';
 import { WhatsAppPanel } from '@/components/whatsapp-panel';
 import { OptOutToggle } from '@/components/opt-out-toggle';
-import {
-  LIFECYCLE_STAGES,
-  LIFECYCLE_LABELS,
-  COMM_CHANNELS,
-} from '@/lib/lifecycle';
+import { COMM_CHANNELS } from '@/lib/lifecycle';
 import { isInGraceWindow, GRACE_WINDOW_MS } from '@/lib/sheet-grace';
-import { LifecycleBadge, PaymentBadge } from '@/components/badges';
+import { PaymentBadge } from '@/components/badges';
+import { StageBadge } from '@/components/stage-badge';
 import { ActionForm } from '@/components/action-form';
 
 export default async function ParticipantDetailPage({
@@ -49,6 +47,7 @@ export default async function ParticipantDetailPage({
     waTemplates,
     comms,
     optOuts,
+    stages,
   ] = await Promise.all([
     getLifecycleHistory(p.id),
     p.family_group_id
@@ -59,6 +58,7 @@ export default async function ParticipantDetailPage({
     listTemplates(eventId, 'whatsapp'),
     participantCommunications(p.id),
     listOptOutsForParticipant(p.id),
+    listStages(eventId),
   ]);
 
   const mergeContext = participantMergeContext(p, event.name);
@@ -101,7 +101,13 @@ export default async function ParticipantDetailPage({
             {p.full_name}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <LifecycleBadge stage={p.lifecycle_stage} />
+            {p.stage && (
+              <StageBadge
+                name={p.stage.name}
+                color={p.stage.color}
+                terminal={p.stage.is_terminal}
+              />
+            )}
             <PaymentBadge status={p.payment_status} />
             {p.family_group_id && (
               <Link
@@ -147,13 +153,13 @@ export default async function ParticipantDetailPage({
                   New stage
                 </span>
                 <select
-                  name="newStage"
-                  defaultValue={p.lifecycle_stage}
+                  name="newStageId"
+                  defaultValue={p.lifecycle_stage_id}
                   className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
                 >
-                  {LIFECYCLE_STAGES.map((s) => (
-                    <option key={s} value={s}>
-                      {LIFECYCLE_LABELS[s]}
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -202,11 +208,9 @@ export default async function ParticipantDetailPage({
                     {new Date(h.changed_at).toLocaleString()}
                   </span>
                   <span className="text-zinc-700 dark:text-zinc-300">
-                    {h.from_stage
-                      ? `${LIFECYCLE_LABELS[h.from_stage]} → `
-                      : ''}
+                    {h.from_stage ? `${h.from_stage.name} → ` : ''}
                     <span className="font-medium">
-                      {LIFECYCLE_LABELS[h.to_stage]}
+                      {h.to_stage?.name ?? '(unknown)'}
                     </span>
                   </span>
                   {h.reason && (

@@ -5,13 +5,10 @@ import {
 } from '@/modules/participants/repository';
 import { listTemplates } from '@/modules/communications/repository';
 import { getOptedOutSet } from '@/modules/communications/opt-out';
+import { listStages } from '@/modules/stages/repository';
+import type { Stage } from '@/modules/stages/types';
 import { getCurrentEventId } from '@/lib/event-context';
-import {
-  LIFECYCLE_STAGES,
-  PAYMENT_STATUSES,
-  type LifecycleStage,
-  type PaymentStatus,
-} from '@/lib/lifecycle';
+import { PAYMENT_STATUSES, type PaymentStatus } from '@/lib/lifecycle';
 import { MAX_RECIPIENTS_PER_SEND } from '@/modules/communications/send';
 import { BulkSendForm } from '@/components/bulk-send-form';
 
@@ -30,15 +27,16 @@ function asStringList(v: string | string[] | undefined): string[] {
   return v.split(',').filter(Boolean);
 }
 
-function parseFilters(sp: Search): ParticipantFilters {
-  const stages = asStringList(sp.stage).filter((s): s is LifecycleStage =>
-    (LIFECYCLE_STAGES as readonly string[]).includes(s)
-  );
+function parseFilters(sp: Search, stages: Stage[]): ParticipantFilters {
+  const slugs = asStringList(sp.stage);
+  const stageIds = slugs
+    .map((slug) => stages.find((s) => s.slug === slug)?.id)
+    .filter((id): id is string => !!id);
   const payments = asStringList(sp.payment).filter((p): p is PaymentStatus =>
     (PAYMENT_STATUSES as readonly string[]).includes(p)
   );
   return {
-    stages: stages.length ? stages : undefined,
+    stageIds: stageIds.length ? stageIds : undefined,
     payments: payments.length ? payments : undefined,
     dorm: asString(sp.dorm) || undefined,
     section: asString(sp.section) || undefined,
@@ -56,8 +54,9 @@ export default async function BulkSendPage({
   searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
-  const filters = parseFilters(sp);
   const eventId = await getCurrentEventId();
+  const stages = await listStages(eventId);
+  const filters = parseFilters(sp, stages);
   const [rows, templates, emailOptedOut] = await Promise.all([
     listParticipantsFiltered(eventId, filters),
     listTemplates(eventId, 'email'),

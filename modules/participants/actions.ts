@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { LIFECYCLE_STAGES, type LifecycleStage } from '@/lib/lifecycle';
+import { getStage } from '@/modules/stages/repository';
 import {
   changeLifecycleStage,
   groupAsFamily,
@@ -51,20 +51,21 @@ export async function changeLifecycleAction(
   formData: FormData
 ): Promise<ActionResult> {
   const participantId = String(formData.get('participantId') ?? '');
-  const newStage = String(formData.get('newStage') ?? '') as LifecycleStage;
+  const newStageId = String(formData.get('newStageId') ?? '');
   const reason = String(formData.get('reason') ?? '').trim() || null;
   const setLastContacted = formData.get('setLastContacted') === '1';
 
   if (!participantId) return { ok: false, error: 'missing participantId' };
-  if (!(LIFECYCLE_STAGES as readonly string[]).includes(newStage)) {
-    return { ok: false, error: `invalid stage: ${newStage}` };
-  }
+  if (!newStageId) return { ok: false, error: 'pick a stage' };
+
+  const stage = await getStage(newStageId);
+  if (!stage) return { ok: false, error: 'stage not found' };
 
   let outcome: WritebackOutcome;
   try {
     outcome = await changeLifecycleStage({
       participantId,
-      newStage,
+      newStageId,
       reason,
       setLastContacted,
     });
@@ -74,7 +75,7 @@ export async function changeLifecycleAction(
 
   revalidatePath(`/participants/${participantId}`);
   revalidatePath('/participants');
-  const desc = describeWriteback(outcome, `Lifecycle updated to ${newStage}.`);
+  const desc = describeWriteback(outcome, `Lifecycle updated to ${stage.name}.`);
   return { ok: true, message: desc.message, severity: desc.severity };
 }
 

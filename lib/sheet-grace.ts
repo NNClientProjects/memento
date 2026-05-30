@@ -1,10 +1,6 @@
-import {
-  LIFECYCLE_STAGES,
-  COMM_CHANNELS,
-  type LifecycleStage,
-  type CommChannel,
-} from './lifecycle';
+import { COMM_CHANNELS, type CommChannel } from './lifecycle';
 import type { MasterSheetRow } from '@/integrations/google-sheets/master-sheet';
+import type { Stage } from '@/modules/stages/types';
 
 export const GRACE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -17,9 +13,10 @@ export function isInGraceWindow(
 }
 
 // Tracking columns we read from sheet → import into DB.
-// Keys are sheet header names; values are participant DB column names (null = no DB target yet).
+// Keys are sheet header names; values are participant DB column names
+// (null = no DB target yet).
 export const TRACKING_COL_TO_DB: Record<string, string | null> = {
-  'Lifecycle Stage': 'lifecycle_stage',
+  'Lifecycle Stage': 'lifecycle_stage_id',
   'Assigned Organiser': null,
   'Last Contacted Date': 'last_contacted_at',
   'Last Contacted Channel': 'last_contacted_channel',
@@ -52,21 +49,30 @@ export function extractTrackingFromSheetRow(
   };
 }
 
+export type TranslateContext = {
+  stages: Stage[];          // per-event stages, for Lifecycle Stage resolution
+  initialStageId: string;   // fallback for blank cells
+};
+
 // Translate a raw sheet cell value into the right DB type for a given tracking column.
-// Returns { value } if importable, or { skip: reason } if it should be ignored.
+// Returns { value, dbColumn? } if importable, or { skip: reason } if it should be ignored.
+// Lifecycle Stage cells are matched case-insensitively against stage name OR slug.
 export function translateSheetValForDb(
   col: string,
-  sheetValue: string
+  sheetValue: string,
+  ctx: TranslateContext
 ): { value: unknown } | { skip: string } {
   const trimmed = sheetValue.trim();
 
   switch (col) {
     case 'Lifecycle Stage': {
-      if (!trimmed) return { value: 'not_contacted' };
-      if (!(LIFECYCLE_STAGES as readonly string[]).includes(trimmed)) {
-        return { skip: `invalid_lifecycle_stage:${trimmed}` };
-      }
-      return { value: trimmed as LifecycleStage };
+      if (!trimmed) return { value: ctx.initialStageId };
+      const lower = trimmed.toLowerCase();
+      const match = ctx.stages.find(
+        (s) => s.slug === trimmed || s.name.toLowerCase() === lower
+      );
+      if (!match) return { skip: `invalid_lifecycle_stage:${trimmed}` };
+      return { value: match.id };
     }
     case 'Last Contacted Channel': {
       if (!trimmed) return { value: null };

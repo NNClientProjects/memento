@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import {
   hasServiceAccount,
@@ -188,6 +189,12 @@ export default async function SetupPage() {
         <section className="mb-5 space-y-3">
           <SyncNowButton />
           <ReconcileNowButton />
+          <Link
+            href="/stages"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          >
+            Manage lifecycle stages →
+          </Link>
         </section>
       ) : (
         <section className="mb-5 rounded-md bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-300">

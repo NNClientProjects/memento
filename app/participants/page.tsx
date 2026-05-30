@@ -4,16 +4,16 @@ import {
   listDistinctDormsAndSections,
   type ParticipantFilters,
 } from '@/modules/participants/repository';
+import { listStages } from '@/modules/stages/repository';
+import type { Stage } from '@/modules/stages/types';
 import { getCurrentEventId } from '@/lib/event-context';
 import {
-  LIFECYCLE_STAGES,
-  LIFECYCLE_LABELS,
   PAYMENT_STATUSES,
   PAYMENT_LABELS,
-  type LifecycleStage,
   type PaymentStatus,
 } from '@/lib/lifecycle';
-import { LifecycleBadge, PaymentBadge } from '@/components/badges';
+import { PaymentBadge } from '@/components/badges';
+import { StageBadge } from '@/components/stage-badge';
 import { CopyButtons, type CopyRow } from '@/components/copy-buttons';
 
 export const dynamic = 'force-dynamic';
@@ -31,15 +31,18 @@ function asStringList(v: string | string[] | undefined): string[] {
   return v.split(',').filter(Boolean);
 }
 
-function parseFilters(sp: Search): ParticipantFilters {
-  const stages = asStringList(sp.stage).filter((s): s is LifecycleStage =>
-    (LIFECYCLE_STAGES as readonly string[]).includes(s)
-  );
+// Resolve stage slugs from URL ?stage=... into stage IDs by looking up against
+// the event's stages. Slugs are stable across renames; IDs are not URL-friendly.
+function parseFilters(sp: Search, stages: Stage[]): ParticipantFilters {
+  const slugs = asStringList(sp.stage);
+  const stageIds = slugs
+    .map((slug) => stages.find((s) => s.slug === slug)?.id)
+    .filter((id): id is string => !!id);
   const payments = asStringList(sp.payment).filter((p): p is PaymentStatus =>
     (PAYMENT_STATUSES as readonly string[]).includes(p)
   );
   return {
-    stages: stages.length ? stages : undefined,
+    stageIds: stageIds.length ? stageIds : undefined,
     payments: payments.length ? payments : undefined,
     dorm: asString(sp.dorm) || undefined,
     section: asString(sp.section) || undefined,
@@ -67,12 +70,16 @@ export default async function ParticipantsPage({
   searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
-  const filters = parseFilters(sp);
   const eventId = await getCurrentEventId();
+  const stages = await listStages(eventId);
+  const filters = parseFilters(sp, stages);
   const [rows, distinct] = await Promise.all([
     listParticipantsFiltered(eventId, filters),
     listDistinctDormsAndSections(eventId),
   ]);
+
+  const currentStageSlug = asString(sp.stage) ?? '';
+  const stagesById = new Map(stages.map((s) => [s.id, s]));
 
   const activeChips: Array<{ label: string; href: string }> = [];
   const removeKey = (key: string) => {
@@ -80,11 +87,12 @@ export default async function ParticipantsPage({
     delete next[key];
     return `/participants${buildSearchParams(next)}`;
   };
-  if (filters.stages?.length)
-    activeChips.push({
-      label: `stage: ${filters.stages.map((s) => LIFECYCLE_LABELS[s]).join(', ')}`,
-      href: removeKey('stage'),
-    });
+  if (filters.stageIds?.length) {
+    const names = filters.stageIds
+      .map((id) => stagesById.get(id)?.name ?? id)
+      .join(', ');
+    activeChips.push({ label: `stage: ${names}`, href: removeKey('stage') });
+  }
   if (filters.payments?.length)
     activeChips.push({
       label: `payment: ${filters.payments.map((s) => PAYMENT_LABELS[s]).join(', ')}`,
@@ -117,7 +125,7 @@ export default async function ParticipantsPage({
     dorm_number: p.reunion?.dorm_number ?? null,
     section: p.reunion?.section ?? null,
     family_group_id: p.family_group_id,
-    lifecycle_stage: p.lifecycle_stage,
+    lifecycle_stage: p.stage?.name ?? '',
     payment_status: p.payment_status,
   }));
 
@@ -154,7 +162,16 @@ export default async function ParticipantsPage({
       </header>
 
       <FilterBar
-        filters={filters}
+        currentStageSlug={currentStageSlug}
+        currentPayment={asString(sp.payment) ?? ''}
+        currentDorm={filters.dorm ?? ''}
+        currentSection={filters.section ?? ''}
+        currentFamily={filters.familyGroupId ?? ''}
+        currentSort={filters.sort ?? 'name'}
+        currentQ={filters.q ?? ''}
+        currentHasEmail={!!filters.hasEmail}
+        currentHasPhone={!!filters.hasPhone}
+        stages={stages}
         availableDorms={distinct.dorms}
         availableSections={distinct.sections}
       />
@@ -206,90 +223,87 @@ export default async function ParticipantsPage({
       ) : (
         <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
           <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900/80">
-              <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Contact</th>
-                <th className="px-4 py-3 font-medium">Dorm / Section</th>
-                <th className="px-4 py-3 font-medium">Family</th>
-                <th className="px-4 py-3 font-medium">Lifecycle</th>
-                <th className="px-4 py-3 font-medium">Payment</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-              {rows.map((p) => (
-                <tr
-                  key={p.id}
-                  className="transition-colors hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
-                >
-                  <td className="px-4 py-2.5">
-                    <Link
-                      href={`/participants/${p.id}`}
-                      className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                    >
-                      {p.full_name}
-                    </Link>
-                    {p.current_city && (
-                      <div className="text-xs text-zinc-500">
-                        {p.current_city}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs">
-                    {p.email && (
-                      <div className="text-zinc-700 dark:text-zinc-300">
-                        {p.email}
-                      </div>
-                    )}
-                    {p.phone_e164 && (
-                      <div className="font-mono text-zinc-500">
-                        {p.phone_e164}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs">
-                    {p.reunion?.dorm ? (
-                      <div>
-                        {p.reunion.dorm}
-                        {p.reunion.dorm_number && (
-                          <span className="text-zinc-500">
-                            {' '}
-                            #{p.reunion.dorm_number}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
-                    {p.reunion?.section && (
-                      <div className="text-zinc-500">
-                        Section {p.reunion.section}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs">
-                    {p.family_group_id ? (
-                      <Link
-                        href={`/participants?family_group_id=${encodeURIComponent(p.family_group_id)}`}
-                        className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                      >
-                        {p.family_group_id}
-                      </Link>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <LifecycleBadge stage={p.lifecycle_stage} />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <PaymentBadge status={p.payment_status} />
-                  </td>
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900/80">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Contact</th>
+                  <th className="px-4 py-3 font-medium">Dorm / Section</th>
+                  <th className="px-4 py-3 font-medium">Family</th>
+                  <th className="px-4 py-3 font-medium">Lifecycle</th>
+                  <th className="px-4 py-3 font-medium">Payment</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                {rows.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="transition-colors hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/participants/${p.id}`}
+                        className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                      >
+                        {p.full_name}
+                      </Link>
+                      {p.current_city && (
+                        <div className="text-xs text-zinc-500">{p.current_city}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs">
+                      {p.email && (
+                        <div className="text-zinc-700 dark:text-zinc-300">{p.email}</div>
+                      )}
+                      {p.phone_e164 && (
+                        <div className="font-mono text-zinc-500">{p.phone_e164}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs">
+                      {p.reunion?.dorm ? (
+                        <div>
+                          {p.reunion.dorm}
+                          {p.reunion.dorm_number && (
+                            <span className="text-zinc-500"> #{p.reunion.dorm_number}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                      {p.reunion?.section && (
+                        <div className="text-zinc-500">Section {p.reunion.section}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs">
+                      {p.family_group_id ? (
+                        <Link
+                          href={`/participants?family_group_id=${encodeURIComponent(p.family_group_id)}`}
+                          className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                        >
+                          {p.family_group_id}
+                        </Link>
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {p.stage ? (
+                        <StageBadge
+                          name={p.stage.name}
+                          color={p.stage.color}
+                          terminal={p.stage.is_terminal}
+                        />
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <PaymentBadge status={p.payment_status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -298,14 +312,34 @@ export default async function ParticipantsPage({
 }
 
 function FilterBar({
-  filters,
+  currentStageSlug,
+  currentPayment,
+  currentDorm,
+  currentSection,
+  currentFamily,
+  currentSort,
+  currentQ,
+  currentHasEmail,
+  currentHasPhone,
+  stages,
   availableDorms,
   availableSections,
 }: {
-  filters: ParticipantFilters;
+  currentStageSlug: string;
+  currentPayment: string;
+  currentDorm: string;
+  currentSection: string;
+  currentFamily: string;
+  currentSort: string;
+  currentQ: string;
+  currentHasEmail: boolean;
+  currentHasPhone: boolean;
+  stages: Stage[];
   availableDorms: string[];
   availableSections: string[];
 }) {
+  const fieldCls =
+    'mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950';
   return (
     <form
       method="GET"
@@ -317,23 +351,19 @@ function FilterBar({
           <input
             type="text"
             name="q"
-            defaultValue={filters.q ?? ''}
+            defaultValue={currentQ}
             placeholder="Name or email…"
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
+            className={fieldCls}
           />
         </label>
 
         <label className="text-sm">
           <Label>Lifecycle</Label>
-          <select
-            name="stage"
-            defaultValue={filters.stages?.[0] ?? ''}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
-          >
+          <select name="stage" defaultValue={currentStageSlug} className={fieldCls}>
             <option value="">Any</option>
-            {LIFECYCLE_STAGES.map((s) => (
-              <option key={s} value={s}>
-                {LIFECYCLE_LABELS[s]}
+            {stages.map((s) => (
+              <option key={s.id} value={s.slug}>
+                {s.name}
               </option>
             ))}
           </select>
@@ -341,11 +371,7 @@ function FilterBar({
 
         <label className="text-sm">
           <Label>Payment</Label>
-          <select
-            name="payment"
-            defaultValue={filters.payments?.[0] ?? ''}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
-          >
+          <select name="payment" defaultValue={currentPayment} className={fieldCls}>
             <option value="">Any</option>
             {PAYMENT_STATUSES.map((p) => (
               <option key={p} value={p}>
@@ -357,11 +383,7 @@ function FilterBar({
 
         <label className="text-sm">
           <Label>Dorm</Label>
-          <select
-            name="dorm"
-            defaultValue={filters.dorm ?? ''}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
-          >
+          <select name="dorm" defaultValue={currentDorm} className={fieldCls}>
             <option value="">Any</option>
             {availableDorms.map((d) => (
               <option key={d} value={d}>
@@ -373,11 +395,7 @@ function FilterBar({
 
         <label className="text-sm">
           <Label>Section</Label>
-          <select
-            name="section"
-            defaultValue={filters.section ?? ''}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950"
-          >
+          <select name="section" defaultValue={currentSection} className={fieldCls}>
             <option value="">Any</option>
             {availableSections.map((s) => (
               <option key={s} value={s}>
@@ -394,7 +412,7 @@ function FilterBar({
           <input
             type="text"
             name="family_group_id"
-            defaultValue={filters.familyGroupId ?? ''}
+            defaultValue={currentFamily}
             placeholder="F-0042"
             className="w-28 rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
           />
@@ -403,7 +421,7 @@ function FilterBar({
           <Label inline>Sort</Label>
           <select
             name="sort"
-            defaultValue={filters.sort ?? 'name'}
+            defaultValue={currentSort}
             className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="name">Name</option>
@@ -415,7 +433,7 @@ function FilterBar({
             type="checkbox"
             name="has_email"
             value="1"
-            defaultChecked={!!filters.hasEmail}
+            defaultChecked={currentHasEmail}
           />
           <span>Has email</span>
         </label>
@@ -424,7 +442,7 @@ function FilterBar({
             type="checkbox"
             name="has_phone"
             value="1"
-            defaultChecked={!!filters.hasPhone}
+            defaultChecked={currentHasPhone}
           />
           <span>Has phone</span>
         </label>

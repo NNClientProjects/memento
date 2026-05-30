@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
-import type { LifecycleStage, PaymentStatus } from '@/lib/lifecycle';
+import type { PaymentStatus } from '@/lib/lifecycle';
+import { getInitialStage } from '@/modules/stages/repository';
+import type { Stage } from '@/modules/stages/types';
 import type { Participant, ReunionAttendee } from './types';
 
 export async function listDistinctDormsAndSections(
@@ -59,10 +61,11 @@ export async function getParticipantByEmail(
 
 export type ParticipantWithReunion = Participant & {
   reunion: ReunionAttendee | null;
+  stage: Stage | null;
 };
 
 export type ParticipantFilters = {
-  stages?: LifecycleStage[];
+  stageIds?: string[];
   payments?: PaymentStatus[];
   dorm?: string;
   section?: string;
@@ -74,6 +77,19 @@ export type ParticipantFilters = {
   limit?: number;
 };
 
+type RawRow = Participant & {
+  reunion: ReunionAttendee[] | ReunionAttendee | null;
+  stage: Stage[] | Stage | null;
+};
+
+function normalizeRow(row: RawRow): ParticipantWithReunion {
+  return {
+    ...row,
+    reunion: Array.isArray(row.reunion) ? (row.reunion[0] ?? null) : row.reunion,
+    stage: Array.isArray(row.stage) ? (row.stage[0] ?? null) : row.stage,
+  } as ParticipantWithReunion;
+}
+
 export async function listParticipantsFiltered(
   eventId: string,
   filters: ParticipantFilters
@@ -81,10 +97,13 @@ export async function listParticipantsFiltered(
   const db = getSupabaseAdmin();
   let q = db
     .from('participants')
-    .select('*, reunion:reunion_attendees(*)')
+    .select(
+      '*, reunion:reunion_attendees(*), stage:lifecycle_stages!participants_lifecycle_stage_id_fkey(*)'
+    )
     .eq('event_id', eventId);
 
-  if (filters.stages?.length) q = q.in('lifecycle_stage', filters.stages);
+  if (filters.stageIds?.length)
+    q = q.in('lifecycle_stage_id', filters.stageIds);
   if (filters.payments?.length) q = q.in('payment_status', filters.payments);
   if (filters.familyGroupId) q = q.eq('family_group_id', filters.familyGroupId);
   if (filters.hasEmail) q = q.not('email', 'is', null);
@@ -105,16 +124,8 @@ export async function listParticipantsFiltered(
   const { data, error } = await q;
   if (error) throw error;
 
-  // Supabase returns reunion as an array (it doesn't know it's 1:1); normalize.
-  const rows = (data ?? []) as Array<
-    Participant & { reunion: ReunionAttendee[] | ReunionAttendee | null }
-  >;
-  let normalized = rows.map((r) => ({
-    ...r,
-    reunion: Array.isArray(r.reunion) ? (r.reunion[0] ?? null) : r.reunion,
-  })) as ParticipantWithReunion[];
+  let normalized = ((data ?? []) as RawRow[]).map(normalizeRow);
 
-  // Dorm/section filters apply post-fetch (live in joined reunion_attendees table).
   if (filters.dorm) {
     const d = filters.dorm.toLowerCase();
     normalized = normalized.filter(
@@ -138,19 +149,15 @@ export async function getParticipantById(
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from('participants')
-    .select('*, reunion:reunion_attendees(*)')
+    .select(
+      '*, reunion:reunion_attendees(*), stage:lifecycle_stages!participants_lifecycle_stage_id_fkey(*)'
+    )
     .eq('event_id', eventId)
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as Participant & {
-    reunion: ReunionAttendee[] | ReunionAttendee | null;
-  };
-  return {
-    ...row,
-    reunion: Array.isArray(row.reunion) ? (row.reunion[0] ?? null) : row.reunion,
-  } as ParticipantWithReunion;
+  return normalizeRow(data as RawRow);
 }
 
 export type SheetRowInput = {
@@ -241,6 +248,15 @@ export async function upsertParticipantFromSheet(
     return { id: existing.id, isNew: false, matchedBy };
   }
 
+  // New participant — needs a lifecycle stage. Use the event's initial stage,
+  // or fall back to the lowest-ordinal stage if no explicit initial is set.
+  const initial = await getInitialStage(eventId);
+  if (!initial) {
+    throw new Error(
+      `event ${eventId} has no initial lifecycle stage configured. Open /stages and mark one stage as "initial".`
+    );
+  }
+
   const { data, error } = await db
     .from('participants')
     .insert({
@@ -254,6 +270,8 @@ export async function upsertParticipantFromSheet(
       family_group_id: row.family_group_id ?? null,
       sheet_row_number: row.sheet_row_number,
       source: row.source ?? null,
+      lifecycle_stage_id: initial.id,
+      entered_current_stage_at: new Date().toISOString(),
     })
     .select('id')
     .single();

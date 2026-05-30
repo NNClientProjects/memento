@@ -1,15 +1,18 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { writebackToSheet } from '@/integrations/google-sheets/master-sheet';
 import { isInGraceWindow } from '@/lib/sheet-grace';
-import type { LifecycleStage } from '@/lib/lifecycle';
+import { getStage } from '@/modules/stages/repository';
+import type { Stage } from '@/modules/stages/types';
 import type { Participant } from './types';
 
 export type LifecycleHistoryEntry = {
   id: string;
-  from_stage: LifecycleStage | null;
-  to_stage: LifecycleStage;
+  from_stage_id: string | null;
+  to_stage_id: string;
   reason: string | null;
   changed_at: string;
+  from_stage: Stage | null;
+  to_stage: Stage | null;
 };
 
 export async function getLifecycleHistory(
@@ -19,12 +22,33 @@ export async function getLifecycleHistory(
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from('lifecycle_history')
-    .select('id, from_stage, to_stage, reason, changed_at')
+    .select(
+      'id, from_stage_id, to_stage_id, reason, changed_at, from_stage:lifecycle_stages!lifecycle_history_from_stage_id_fkey(*), to_stage:lifecycle_stages!lifecycle_history_to_stage_id_fkey(*)'
+    )
     .eq('participant_id', participantId)
     .order('changed_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as LifecycleHistoryEntry[];
+  type Raw = {
+    id: string;
+    from_stage_id: string | null;
+    to_stage_id: string;
+    reason: string | null;
+    changed_at: string;
+    from_stage: Stage | Stage[] | null;
+    to_stage: Stage | Stage[] | null;
+  };
+  return ((data ?? []) as Raw[]).map((r) => ({
+    id: r.id,
+    from_stage_id: r.from_stage_id,
+    to_stage_id: r.to_stage_id,
+    reason: r.reason,
+    changed_at: r.changed_at,
+    from_stage: Array.isArray(r.from_stage)
+      ? (r.from_stage[0] ?? null)
+      : r.from_stage,
+    to_stage: Array.isArray(r.to_stage) ? (r.to_stage[0] ?? null) : r.to_stage,
+  }));
 }
 
 export async function listFamilyMembers(
@@ -246,7 +270,7 @@ export async function flushPendingWritebacks(
 
 export type LifecycleChangeOptions = {
   participantId: string;
-  newStage: LifecycleStage;
+  newStageId: string;
   reason?: string | null;
   setLastContacted?: boolean;
 };
@@ -264,22 +288,33 @@ export async function changeLifecycleStage(
   if (cErr) throw cErr;
   const p = current as Participant;
 
-  if (p.lifecycle_stage === opts.newStage && !opts.setLastContacted) {
+  if (p.lifecycle_stage_id === opts.newStageId && !opts.setLastContacted) {
     return { ok: true, written: [] };
   }
 
+  const newStage = await getStage(opts.newStageId);
+  if (!newStage) throw new Error(`stage ${opts.newStageId} not found`);
+  if (newStage.event_id !== p.event_id) {
+    throw new Error('stage belongs to a different event');
+  }
+
   const now = new Date().toISOString();
-  const fromStage = p.lifecycle_stage;
+  const fromStageId = p.lifecycle_stage_id;
 
   await db.from('lifecycle_history').insert({
     participant_id: opts.participantId,
-    from_stage: fromStage,
-    to_stage: opts.newStage,
+    from_stage_id: fromStageId,
+    to_stage_id: opts.newStageId,
     reason: opts.reason ?? null,
     changed_at: now,
   });
 
-  const updates: Record<string, unknown> = { lifecycle_stage: opts.newStage };
+  const updates: Record<string, unknown> = {
+    lifecycle_stage_id: opts.newStageId,
+  };
+  if (fromStageId !== opts.newStageId) {
+    updates.entered_current_stage_at = now;
+  }
   if (opts.setLastContacted) updates.last_contacted_at = now;
   const { error: uErr } = await db
     .from('participants')
@@ -292,12 +327,16 @@ export async function changeLifecycleStage(
     entity_type: 'participant',
     entity_id: opts.participantId,
     action: 'lifecycle_change',
-    before: { lifecycle_stage: fromStage },
-    after: { lifecycle_stage: opts.newStage, reason: opts.reason ?? null },
+    before: { lifecycle_stage_id: fromStageId },
+    after: {
+      lifecycle_stage_id: opts.newStageId,
+      stage_name: newStage.name,
+      reason: opts.reason ?? null,
+    },
   });
 
   const sheetUpdates: TrackingUpdates = {
-    'Lifecycle Stage': opts.newStage,
+    'Lifecycle Stage': newStage.name,
     'Updated At': now,
   };
   if (opts.setLastContacted) sheetUpdates['Last Contacted Date'] = now;

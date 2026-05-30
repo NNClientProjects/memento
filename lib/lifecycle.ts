@@ -1,26 +1,8 @@
-export const LIFECYCLE_STAGES = [
-  'not_contacted',
-  'contacted_no_response',
-  'responded_not_interested',
-  'responded_unsure',
-  'responded_interested_not_registered',
-  'registered',
-  'dropped',
-  'checked_in',
-] as const;
-
-export type LifecycleStage = (typeof LIFECYCLE_STAGES)[number];
-
-export const LIFECYCLE_LABELS: Record<LifecycleStage, string> = {
-  not_contacted: 'Not contacted',
-  contacted_no_response: 'Contacted, no response',
-  responded_not_interested: 'Not interested',
-  responded_unsure: 'Unsure',
-  responded_interested_not_registered: 'Interested, not registered',
-  registered: 'Registered',
-  dropped: 'Dropped',
-  checked_in: 'Checked in',
-};
+// Lifecycle stages are now stored in the lifecycle_stages table (per-event,
+// configurable). Code that needs the list at runtime queries the DB via
+// modules/stages/repository.ts. Payment status and comm channels stay
+// hardcoded — they're tightly coupled to integration code and don't change
+// across events.
 
 export const PAYMENT_STATUSES = [
   'not_due',

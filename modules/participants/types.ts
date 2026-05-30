@@ -1,4 +1,5 @@
-import type { LifecycleStage, PaymentStatus, CommChannel } from '@/lib/lifecycle';
+import type { PaymentStatus, CommChannel } from '@/lib/lifecycle';
+import type { Stage } from '@/modules/stages/types';
 
 export type Participant = {
   id: string;
@@ -10,7 +11,8 @@ export type Participant = {
   current_city: string | null;
   current_country: string | null;
   family_group_id: string | null;
-  lifecycle_stage: LifecycleStage;
+  lifecycle_stage_id: string;
+  entered_current_stage_at: string;
   payment_status: PaymentStatus;
   assigned_organiser_id: string | null;
   last_contacted_at: string | null;
@@ -25,8 +27,14 @@ export type Participant = {
   sheet_tracking_snapshot: Record<string, string> | null;
   sheet_tracking_synced_at: string | null;
   sheet_edit_detected_at: string | null;
+  whatsapp_claimed_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Convenience: a participant joined with its current stage row.
+export type ParticipantWithStage = Participant & {
+  stage: Stage | null;
 };
 
 export type ReunionAttendee = {
