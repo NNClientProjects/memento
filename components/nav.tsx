@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { authConfigured } from '@/lib/auth-cookie';
+import { LogoutButton } from './logout-button';
 
 export function Nav() {
   return (
@@ -24,6 +26,11 @@ export function Nav() {
             Setup
           </Link>
         </div>
+        {authConfigured() && (
+          <div className="ml-auto">
+            <LogoutButton />
+          </div>
+        )}
       </div>
     </nav>
   );

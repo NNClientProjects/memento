@@ -29,6 +29,8 @@ const serverEnvSchema = z.object({
   CRON_SECRET: z.string().optional(),
   OPT_OUT_SECRET: z.string().optional(),
   APP_BASE_URL: z.string().url().optional(),
+  ADMIN_PASSWORD: z.string().optional(),
+  AUTH_COOKIE_SECRET: z.string().optional(),
 });
 
 type ServerEnv = z.infer<typeof serverEnvSchema>;

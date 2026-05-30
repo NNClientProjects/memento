@@ -49,6 +49,13 @@ cp .env.example .env.local
 
 You can skip OAuth entirely for Phase 0.
 
+**Auth / password gate** — required before exposing the app to the public internet:
+
+- `ADMIN_PASSWORD` — the shared password the organisers use to sign in
+- `AUTH_COOKIE_SECRET` — a long random string used to sign session cookies (`openssl rand -hex 32`)
+
+If either is unset, the app is **open** (fine for local dev — but never deploy to Vercel like that). With both set, every page except `/login`, `/u/*` (unsubscribe), and the secret-protected webhook endpoints requires sign-in. See [proxy.ts](proxy.ts) for the gate logic.
+
 ### 3. Run database migrations
 
 See [db/README.md](db/README.md). For Phase 0 the simplest path is pasting each file into the Supabase SQL Editor in order.
