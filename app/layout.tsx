@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Event mgmt — Reunion 2026",
+  title: "Memento — Reunion 2026",
   description:
     "Internal tool for organisers: participants, communications, lifecycle, and accommodation.",
 };

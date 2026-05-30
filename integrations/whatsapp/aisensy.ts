@@ -30,7 +30,7 @@ export async function sendTemplateMessage(
         apiKey,
         campaignName: params.campaignName ?? params.templateName,
         destination: params.to,
-        userName: params.userName ?? 'event-mgmt',
+        userName: params.userName ?? 'memento',
         templateParams: params.parameters,
       }),
     });

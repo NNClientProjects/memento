@@ -116,7 +116,7 @@ export default async function Phase0Dashboard() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <header className="mb-8">
         <p className="text-xs uppercase tracking-wider text-zinc-500">
-          event-mgmt-app · phase 0
+          Memento · setup
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">
           Setup dashboard

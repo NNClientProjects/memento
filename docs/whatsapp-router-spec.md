@@ -2,17 +2,17 @@
 
 Spec for the **other backend** (the one that currently receives Meta WhatsApp webhooks for the shared business number). This document describes the small additions that backend needs so multiple apps can share a single WhatsApp Business number without auto-reply collisions.
 
-Owner of this spec: nlightn / event-mgmt-app (Reunion 2026). Last updated 2026-05-30.
+Owner of this spec: nlightn / Memento (Reunion 2026). Last updated 2026-05-30.
 
-**Implementation note (2026-05-30):** the live router exposes claim at `POST /v2/webhooks/contacts/claim`, not the originally-spec'd `POST /api/external/whatsapp/contacts/claim`. The event-mgmt-app uses `ROUTER_CLAIM_PATH` env var (defaulted to `/v2/webhooks/contacts/claim`) so the path can change without code edits. Auth/payload/response shapes below are still authoritative.
+**Implementation note (2026-05-30):** the live router exposes claim at `POST /v2/webhooks/contacts/claim`, not the originally-spec'd `POST /api/external/whatsapp/contacts/claim`. The Memento uses `ROUTER_CLAIM_PATH` env var (defaulted to `/v2/webhooks/contacts/claim`) so the path can change without code edits. Auth/payload/response shapes below are still authoritative.
 
 ## Why this exists
 
 Meta sends inbound WhatsApp webhooks to **exactly one URL per phone number**. We want to share one verified business number between:
 - The existing app (this router backend) — current webhook target
-- The event-mgmt-app (Reunion 2026, the new caller of this spec) — wants to send and receive too
+- The Memento (Reunion 2026, the new caller of this spec) — wants to send and receive too
 
-Constraint: when a reunion participant replies to a message sent by the event-mgmt-app, the router (which receives the webhook) must NOT auto-reply on behalf of the existing app. It should forward that message to the event-mgmt-app and stay quiet.
+Constraint: when a reunion participant replies to a message sent by the Memento, the router (which receives the webhook) must NOT auto-reply on behalf of the existing app. It should forward that message to the Memento and stay quiet.
 
 Solution: a **contact-ownership registry** on the router. Each phone number is owned by exactly one app at a time. On inbound, the router looks up the owner and routes accordingly.
 
@@ -30,7 +30,7 @@ Solution: a **contact-ownership registry** on the router. Each phone number is o
    inbound webhook   │                      │ forwards inbound if owner ≠ self
    from Meta         │                      ▼
                      │           ┌──────────────────────────────┐
-                     │           │  event-mgmt-app (Reunion)    │
+                     │           │  Memento (Reunion)    │
                      │           │  POST /api/whatsapp/inbound  │
                      │           │  Inbox UI                    │
                      │           └─────────────▲────────────────┘
@@ -48,7 +48,7 @@ Solution: a **contact-ownership registry** on the router. Each phone number is o
 
 ### 1. `POST /v2/webhooks/contacts/claim` *(live path; was `/api/external/whatsapp/contacts/claim` in original spec)*
 
-Idempotent. Stores ownership of a phone number. Called by the event-mgmt-app whenever it syncs participants from the master Google Sheet (so the router knows about reunion contacts before any reply lands).
+Idempotent. Stores ownership of a phone number. Called by the Memento whenever it syncs participants from the master Google Sheet (so the router knows about reunion contacts before any reply lands).
 
 **Auth:** `Authorization: Bearer <ROUTER_API_SECRET>` header.
 
@@ -186,12 +186,12 @@ Two separate shared secrets, both stored in both backends' `.env`:
 
 | Secret | Used by | Used for |
 |---|---|---|
-| `ROUTER_API_SECRET` | event-mgmt-app → router | Authenticating `POST /contacts/claim` calls |
-| `INBOUND_FORWARD_SECRET` | router → event-mgmt-app | Authenticating forwarded inbound webhooks |
+| `ROUTER_API_SECRET` | Memento → router | Authenticating `POST /contacts/claim` calls |
+| `INBOUND_FORWARD_SECRET` | router → Memento | Authenticating forwarded inbound webhooks |
 
 Pick long random strings (e.g., `openssl rand -hex 32`). Rotate per environment.
 
-## What the event-mgmt-app will do
+## What the Memento will do
 
 For context, the calling side:
 
@@ -205,20 +205,20 @@ For context, the calling side:
 
 Once the router endpoints are live, an end-to-end smoke test:
 
-1. From the event-mgmt-app, run a sync that includes at least one participant with a phone. Confirm `/contacts/claim` is called on the router, ownership is stored.
+1. From the Memento, run a sync that includes at least one participant with a phone. Confirm `/contacts/claim` is called on the router, ownership is stored.
 2. From that participant's WhatsApp account, send any message to the shared business number.
-3. The router should forward it to the event-mgmt-app's inbound URL and stay silent. The event-mgmt-app's `/communications` page should show the inbound row.
-4. From the event-mgmt-app, send an outbound WhatsApp message (via Meta Cloud API). Reply from the participant. Confirm reply also gets routed to the event-mgmt-app, not auto-replied by the router.
+3. The router should forward it to the Memento's inbound URL and stay silent. The Memento's `/communications` page should show the inbound row.
+4. From the Memento, send an outbound WhatsApp message (via Meta Cloud API). Reply from the participant. Confirm reply also gets routed to the Memento, not auto-replied by the router.
 
 ## What this spec does NOT cover (out of scope)
 
 - The router's auto-reply / conversation logic for its own owned contacts — that's existing behavior, unchanged.
 - Multi-owner / shared contacts — a phone is owned by exactly one app at a time. Phase 3+ may revisit.
 - Migration of historical contacts — if there are reunion participants already in the router's existing contacts table with active conversations, plan a manual one-time backfill (call `/contacts/claim` from a script for each).
-- Meta access tokens — the event-mgmt-app uses its own system-user token, separate from the router's. Token management is per-app.
+- Meta access tokens — the Memento uses its own system-user token, separate from the router's. Token management is per-app.
 
 ## Open questions for the router implementer
 
 - What's the auto-reply trigger today on the router for unknown senders? (Important to know what the "do not auto-reply" branch must skip.)
-- Are delivery callbacks (sent / delivered / read) needed by the event-mgmt-app? If yes, the router should also forward those for messages sent by the event-mgmt-app. Out of scope for Phase 2 — can be added later.
-- Is the router on a public URL the event-mgmt-app can reach from local dev (or do we need a tunnel)?
+- Are delivery callbacks (sent / delivered / read) needed by the Memento? If yes, the router should also forward those for messages sent by the Memento. Out of scope for Phase 2 — can be added later.
+- Is the router on a public URL the Memento can reach from local dev (or do we need a tunnel)?

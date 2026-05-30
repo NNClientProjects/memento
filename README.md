@@ -1,8 +1,8 @@
-# event-mgmt-app
+# Memento
 
 Modular monolith for managing event participants across the engagement lifecycle. Built for **Reunion 2026** as the first tenant; designed to host additional events and modules without core rewrites.
 
-Stack: Next.js 16 (App Router) · TypeScript · Supabase · Google Sheets/Forms/Gmail · AiSensy (WhatsApp).
+Stack: Next.js 16 (App Router) · TypeScript · Supabase · Google Sheets/Forms/Gmail · Meta WhatsApp Cloud API (via a contact-ownership router; see [docs/whatsapp-router-spec.md](docs/whatsapp-router-spec.md)).
 
 ## Phase 0 status
 

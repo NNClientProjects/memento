@@ -1,4 +1,4 @@
--- Core, event-agnostic schema for the event-mgmt app.
+-- Core, event-agnostic schema for Memento.
 -- Per-event extensions (e.g., reunion fields, T-Night) live in their own migrations.
 
 create extension if not exists pgcrypto;
