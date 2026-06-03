@@ -34,21 +34,29 @@ export function UnsubscribeForm({
   if (showAsOptedOut) {
     return (
       <div className="space-y-4">
-        <div className="rounded-md bg-green-50 p-4 text-sm text-green-800 dark:bg-green-950/30 dark:text-green-300">
-          ✓ You won&apos;t receive {channel} messages from us anymore.
+        <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300">
+          <span
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-green-600 text-xs font-bold text-white"
+            aria-hidden="true"
+          >
+            ✓
+          </span>
+          <p>
+            You won&apos;t receive {channel} messages from us anymore. Done.
+          </p>
         </div>
         <details className="text-xs text-zinc-500">
-          <summary className="cursor-pointer">
-            Changed your mind? Resubscribe.
+          <summary className="cursor-pointer rounded px-1 py-0.5 hover:text-zinc-700 dark:hover:text-zinc-300">
+            Changed your mind? Resubscribe →
           </summary>
           <form action={optInAction} className="mt-3">
             <input type="hidden" name="token" value={token} />
             <button
               type="submit"
               disabled={optInPending}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
-              {optInPending ? 'Working…' : 'Resubscribe to ' + channel}
+              {optInPending ? 'Working…' : `Resubscribe to ${channel}`}
             </button>
             {optInState && !optInState.ok && (
               <p className="mt-2 text-sm text-red-700 dark:text-red-400">
@@ -67,9 +75,9 @@ export function UnsubscribeForm({
       <button
         type="submit"
         disabled={optOutPending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-50"
       >
-        {optOutPending ? 'Working…' : 'Unsubscribe from ' + channel}
+        {optOutPending ? 'Working…' : `Unsubscribe from ${channel}`}
       </button>
       {optOutState && !optOutState.ok && (
         <p className="mt-2 text-sm text-red-700 dark:text-red-400">

@@ -32,6 +32,10 @@ export async function createTemplateAction(
   const subject = String(formData.get('subject') ?? '').trim() || null;
   const body = String(formData.get('body') ?? '').trim();
   const status = String(formData.get('status') ?? 'draft') as TemplateStatus;
+  const provider_template_id =
+    String(formData.get('provider_template_id') ?? '').trim() || null;
+  const provider_language_code =
+    String(formData.get('provider_language_code') ?? '').trim() || 'en';
 
   if (!name) return { ok: false, error: 'name is required' };
   if (!body) return { ok: false, error: 'body is required' };
@@ -49,6 +53,8 @@ export async function createTemplateAction(
       subject,
       body,
       status,
+      provider_template_id,
+      provider_language_code,
     });
     revalidatePath('/templates');
     return { ok: true, message: `Template "${t.name}" created.`, templateId: t.id };
@@ -66,6 +72,10 @@ export async function updateTemplateAction(
   const subject = String(formData.get('subject') ?? '').trim() || null;
   const body = String(formData.get('body') ?? '').trim();
   const status = String(formData.get('status') ?? 'draft') as TemplateStatus;
+  const provider_template_id =
+    String(formData.get('provider_template_id') ?? '').trim() || null;
+  const provider_language_code =
+    String(formData.get('provider_language_code') ?? '').trim() || 'en';
 
   if (!id) return { ok: false, error: 'missing template id' };
   if (!name) return { ok: false, error: 'name is required' };
@@ -74,7 +84,14 @@ export async function updateTemplateAction(
     return { ok: false, error: `invalid status: ${status}` };
 
   try {
-    await updateTemplate(id, { name, subject, body, status });
+    await updateTemplate(id, {
+      name,
+      subject,
+      body,
+      status,
+      provider_template_id,
+      provider_language_code,
+    });
     revalidatePath('/templates');
     revalidatePath(`/templates/${id}`);
     return { ok: true, message: 'Template saved.' };

@@ -6,6 +6,7 @@ import {
   translateSheetValForDb,
   TRACKING_COL_TO_DB,
   TRACKING_COL_NAMES,
+  type TranslateContext,
 } from '@/lib/sheet-grace';
 import {
   upsertParticipantFromSheet,
@@ -13,6 +14,7 @@ import {
   type SheetRowInput,
 } from '@/modules/participants/repository';
 import { flushPendingWritebacks, type FlushSummary } from '@/modules/participants/services';
+import { listStages, getInitialStage } from '@/modules/stages/repository';
 import { claimContact, isClaimSkip } from '@/integrations/whatsapp/router';
 import { readMasterSheet, type MasterSheetRow } from './master-sheet';
 
@@ -133,7 +135,8 @@ async function reconcileTrackingForRow(
   participantId: string,
   eventId: string,
   sheetRow: MasterSheetRow,
-  summary: SyncSummary
+  summary: SyncSummary,
+  translateCtx: TranslateContext
 ): Promise<void> {
   const db = getSupabaseAdmin();
 
@@ -157,7 +160,7 @@ async function reconcileTrackingForRow(
     for (const col of TRACKING_COL_NAMES) {
       const dbCol = TRACKING_COL_TO_DB[col];
       if (!dbCol) continue;
-      const translated = translateSheetValForDb(col, currentSheet[col] ?? '');
+      const translated = translateSheetValForDb(col, currentSheet[col] ?? '', translateCtx);
       if ('skip' in translated) {
         if (translated.skip !== 'no_db_target') {
           summary.invalidValues[translated.skip] =
@@ -197,7 +200,7 @@ async function reconcileTrackingForRow(
 
     const dbCol = TRACKING_COL_TO_DB[col];
     if (!dbCol) continue;
-    const translated = translateSheetValForDb(col, sheetVal);
+    const translated = translateSheetValForDb(col, sheetVal, translateCtx);
     if ('skip' in translated) {
       if (translated.skip !== 'no_db_target') {
         summary.invalidValues[translated.skip] =
@@ -300,6 +303,20 @@ export async function syncMasterSheet(
     const eventName = (ev2 as { name: string } | null)?.name ?? eventSlug;
     const routerConfigured = hasWhatsAppRouter();
 
+    // Load stages once per sync so the translator can resolve Lifecycle Stage
+    // cells against actual stage rows.
+    const stages = await listStages(eventId);
+    const initial = await getInitialStage(eventId);
+    if (!initial) {
+      throw new Error(
+        `event ${eventSlug} has no initial lifecycle stage. Open /stages and mark one stage as "initial".`
+      );
+    }
+    const translateCtx: TranslateContext = {
+      stages,
+      initialStageId: initial.id,
+    };
+
     for (const row of rows) {
       const input = rowToInput(row);
       if ('skip' in input) {
@@ -323,7 +340,7 @@ export async function syncMasterSheet(
         spouse_dorm_number: row.spouseDormNumber?.trim() || null,
       });
 
-      await reconcileTrackingForRow(result.id, eventId, row, summary);
+      await reconcileTrackingForRow(result.id, eventId, row, summary, translateCtx);
 
       if (routerConfigured && input.phone_e164) {
         await maybeClaimWhatsApp(

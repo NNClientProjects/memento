@@ -15,6 +15,14 @@ async function lookupParticipantName(participantId: string): Promise<string | nu
   return ((data as { full_name: string } | null)?.full_name) ?? null;
 }
 
+function ChannelLabel({ channel }: { channel: 'email' | 'whatsapp' }) {
+  return (
+    <span className="font-medium capitalize text-zinc-900 dark:text-zinc-100">
+      {channel}
+    </span>
+  );
+}
+
 export default async function UnsubscribePage({
   params,
 }: {
@@ -25,14 +33,16 @@ export default async function UnsubscribePage({
 
   if (!parsed) {
     return (
-      <main className="mx-auto max-w-md px-6 py-16">
-        <h1 className="text-2xl font-semibold">Invalid link</h1>
+      <Shell>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          This link is invalid
+        </h1>
         <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-          This unsubscribe link is invalid or has been tampered with. If you
+          The unsubscribe link is malformed or has been tampered with. If you
           received it in an email and believe this is a mistake, please reply
-          to that email directly.
+          to that email directly and we&apos;ll sort it out.
         </p>
-      </main>
+      </Shell>
     );
   }
 
@@ -42,14 +52,14 @@ export default async function UnsubscribePage({
   ]);
 
   return (
-    <main className="mx-auto max-w-md px-6 py-16">
+    <Shell>
       <h1 className="text-2xl font-semibold tracking-tight">
-        Unsubscribe from {parsed.channel}
+        Unsubscribe from <ChannelLabel channel={parsed.channel} />
       </h1>
-      <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-        {name ? `Hi ${name},` : 'Hi,'} you can stop receiving{' '}
-        <span className="font-medium">{parsed.channel}</span> messages from
-        Reunion 2026 organisers by confirming below.
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        {name ? <>Hi {name},</> : <>Hi,</>} you can stop receiving{' '}
+        <ChannelLabel channel={parsed.channel} /> messages from the Reunion 2026
+        organising committee with one click. We&apos;ll respect it immediately.
       </p>
 
       <div className="mt-6">
@@ -60,10 +70,40 @@ export default async function UnsubscribePage({
         />
       </div>
 
-      <p className="mt-8 text-xs text-zinc-500">
-        Note: this only affects {parsed.channel}. Other channels are
-        independent.
-      </p>
+      <div className="mt-8 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800">
+        <p>
+          This only affects {parsed.channel}. Other channels (like the other
+          one) are independent — you can opt out of each separately.
+        </p>
+        <p className="mt-2">
+          Wrong person? Just close this window. Nothing happens until you click
+          the button above.
+        </p>
+      </div>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center px-6 py-12">
+      <div className="w-full max-w-md">
+        <div className="mb-6 flex items-center gap-3">
+          <span
+            className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-base font-bold text-white shadow-md shadow-indigo-600/20"
+            aria-hidden="true"
+          >
+            M
+          </span>
+          <div>
+            <p className="text-sm font-semibold tracking-tight">Memento</p>
+            <p className="text-xs text-zinc-500">Reunion 2026 · organisers</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          {children}
+        </div>
+      </div>
     </main>
   );
 }

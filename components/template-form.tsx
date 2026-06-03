@@ -53,7 +53,7 @@ export function TemplateForm(props: Mode) {
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             >
               <option value="email">Email</option>
-              <option value="whatsapp">WhatsApp (manual launch link)</option>
+              <option value="whatsapp">WhatsApp</option>
             </select>
           ) : (
             <input
@@ -110,6 +110,46 @@ export function TemplateForm(props: Mode) {
           <option value="rejected">Rejected</option>
         </select>
       </label>
+
+      {(props.mode === 'create' || initial?.channel === 'whatsapp') && (
+        <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
+          <legend className="px-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            WhatsApp provider (Meta Cloud API)
+          </legend>
+          <p className="mb-3 text-xs text-zinc-500">
+            Only used for WhatsApp templates. Fill in the Meta-approved
+            template name and the language code Meta has the template in.
+            Positional parameters ({'{{1}}'}, {'{{2}}'}, …) are passed in the
+            order your merge fields appear in the body above.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="text-sm">
+              <span className="block text-xs uppercase tracking-wider text-zinc-500">
+                Meta template name
+              </span>
+              <input
+                type="text"
+                name="provider_template_id"
+                defaultValue={initial?.provider_template_id ?? ''}
+                placeholder="reunion_initial_outreach"
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs uppercase tracking-wider text-zinc-500">
+                Language code
+              </span>
+              <input
+                type="text"
+                name="provider_language_code"
+                defaultValue={initial?.provider_language_code ?? 'en'}
+                placeholder="en"
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
+          </div>
+        </fieldset>
+      )}
 
       <div className="rounded-md bg-zinc-50 p-3 text-xs dark:bg-zinc-900/50">
         <p className="mb-2 font-medium text-zinc-700 dark:text-zinc-300">

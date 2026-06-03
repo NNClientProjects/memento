@@ -37,6 +37,8 @@ export type TemplateInput = {
   subject?: string | null;
   body: string;
   status?: TemplateStatus;
+  provider_template_id?: string | null;
+  provider_language_code?: string;
 };
 
 export async function createTemplate(input: TemplateInput): Promise<Template> {
@@ -54,6 +56,8 @@ export async function createTemplate(input: TemplateInput): Promise<Template> {
       body: input.body,
       merge_fields,
       status: input.status ?? 'draft',
+      provider_template_id: input.provider_template_id ?? null,
+      provider_language_code: input.provider_language_code ?? 'en',
     })
     .select('*')
     .single();
@@ -66,6 +70,8 @@ export type TemplateUpdateInput = {
   subject?: string | null;
   body?: string;
   status?: TemplateStatus;
+  provider_template_id?: string | null;
+  provider_language_code?: string;
 };
 
 export async function updateTemplate(
@@ -79,6 +85,10 @@ export async function updateTemplate(
   if (patch.subject !== undefined) updates.subject = patch.subject;
   if (patch.body !== undefined) updates.body = patch.body;
   if (patch.status !== undefined) updates.status = patch.status;
+  if (patch.provider_template_id !== undefined)
+    updates.provider_template_id = patch.provider_template_id;
+  if (patch.provider_language_code !== undefined)
+    updates.provider_language_code = patch.provider_language_code;
 
   if (patch.body !== undefined || patch.subject !== undefined) {
     const current = await getTemplate(id);

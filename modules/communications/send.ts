@@ -1,6 +1,10 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { sendEmail } from '@/integrations/gmail/client';
 import {
+  sendWhatsAppTemplate,
+  isMetaSendSkip,
+} from '@/integrations/whatsapp/meta-cloud';
+import {
   getParticipantById,
   type ParticipantWithReunion,
 } from '@/modules/participants/repository';
@@ -40,7 +44,7 @@ export type SendRecipientResult = {
 export type SendResult = {
   ok: true;
   dryRun: boolean;
-  template: { id: string; name: string };
+  template: { id: string; name: string; channel: 'email' | 'whatsapp' };
   attempted: number;
   sent: number;
   failed: number;
@@ -91,8 +95,15 @@ export async function sendTemplate(params: {
   if (!template) return { ok: false, error: 'template not found' };
   if (template.event_id !== eventId)
     return { ok: false, error: 'template belongs to a different event' };
-  if (template.channel !== 'email')
-    return { ok: false, error: `cannot send: template channel is ${template.channel}` };
+
+  const isEmail = template.channel === 'email';
+  const isWhatsApp = template.channel === 'whatsapp';
+  if (!isEmail && !isWhatsApp) {
+    return {
+      ok: false,
+      error: `cannot send: channel "${template.channel}" not supported (use email or whatsapp)`,
+    };
+  }
 
   if (!dryRun && template.status !== 'approved') {
     return {
@@ -101,12 +112,21 @@ export async function sendTemplate(params: {
     };
   }
 
+  if (!dryRun && isWhatsApp && !template.provider_template_id) {
+    return {
+      ok: false,
+      error:
+        'WhatsApp template is missing the Meta template name (set "Meta template name" on the template page).',
+    };
+  }
+
   const unknown = unknownFields(template.merge_fields);
+  const channel: 'email' | 'whatsapp' = isEmail ? 'email' : 'whatsapp';
 
   const result: SendResult = {
     ok: true,
     dryRun,
-    template: { id: template.id, name: template.name },
+    template: { id: template.id, name: template.name, channel },
     attempted: 0,
     sent: 0,
     failed: 0,
@@ -116,9 +136,10 @@ export async function sendTemplate(params: {
     recipients: [],
   };
 
-  const seenEmails = new Set<string>();
+  const seenContacts = new Set<string>();
   const db = getSupabaseAdmin();
-  const optedOut = await getOptedOutSet(eventId, template.channel);
+  const optedOut = await getOptedOutSet(eventId, channel);
+  const now = () => new Date().toISOString();
 
   for (const pid of recipientIds) {
     const participant = await getParticipantById(eventId, pid);
@@ -135,59 +156,59 @@ export async function sendTemplate(params: {
       continue;
     }
 
-    if (!participant.email) {
+    const contact = isEmail ? participant.email : participant.phone_e164;
+    if (!contact) {
       result.recipients.push({
         participantId: pid,
         to: null,
         subject: '',
         body: '',
         status: 'skipped',
-        error: 'no email on file',
+        error: isEmail ? 'no email on file' : 'no phone on file',
       });
       result.skipped += 1;
       continue;
     }
 
-    if (seenEmails.has(participant.email)) {
+    if (seenContacts.has(contact)) {
       result.recipients.push({
         participantId: pid,
-        to: participant.email,
+        to: contact,
         subject: '',
         body: '',
         status: 'skipped',
-        error: 'duplicate email in this batch',
+        error: `duplicate ${channel} contact in this batch`,
       });
       result.skipped += 1;
       continue;
     }
-    seenEmails.add(participant.email);
+    seenContacts.add(contact);
 
     if (optedOut.has(pid)) {
       result.recipients.push({
         participantId: pid,
-        to: participant.email,
+        to: contact,
         subject: '',
         body: '',
         status: 'skipped',
-        error: `opted out of ${template.channel}`,
+        error: `opted out of ${channel}`,
       });
       result.optedOut += 1;
       continue;
     }
 
     const ctx = participantMergeContext(participant, eventName);
-    const subject = render(template.subject ?? '', ctx);
+    const subject = isEmail ? render(template.subject ?? '', ctx) : '';
     const renderedBody = render(template.body, ctx);
-    const body =
-      template.channel === 'email'
-        ? appendUnsubscribeFooter(renderedBody, pid)
-        : renderedBody;
+    const body = isEmail
+      ? appendUnsubscribeFooter(renderedBody, pid)
+      : renderedBody;
     result.attempted += 1;
 
     if (dryRun) {
       result.recipients.push({
         participantId: pid,
-        to: participant.email,
+        to: contact,
         subject,
         body,
         status: 'previewed',
@@ -200,10 +221,10 @@ export async function sendTemplate(params: {
       .insert({
         event_id: eventId,
         participant_id: pid,
-        channel: 'email',
+        channel,
         direction: 'outbound',
         template_id: template.id,
-        subject,
+        subject: isEmail ? subject : null,
         body,
         status: 'queued',
       })
@@ -212,38 +233,57 @@ export async function sendTemplate(params: {
     if (cErr) throw cErr;
     const commId = (commRow as { id: string }).id;
 
-    const sendRes = await sendEmail({ to: participant.email, subject, body });
+    let externalId: string | undefined;
+    let errorMsg: string | undefined;
 
-    if (sendRes.ok) {
+    if (isEmail) {
+      const r = await sendEmail({ to: contact, subject, body });
+      if (r.ok) externalId = r.messageId;
+      else errorMsg = r.error;
+    } else {
+      // WhatsApp via Meta Cloud API. Positional params come from merge_fields order.
+      const paramValues = template.merge_fields.map((f) => ctx[f] ?? '');
+      const r = await sendWhatsAppTemplate({
+        templateName: template.provider_template_id!,
+        languageCode: template.provider_language_code,
+        to: contact,
+        bodyParameters: paramValues,
+      });
+      if (isMetaSendSkip(r)) {
+        errorMsg = 'Meta WhatsApp Cloud API not configured (set META_WHATSAPP_*)';
+      } else if (r.ok) {
+        externalId = r.messageId;
+      } else {
+        errorMsg = r.error;
+      }
+    }
+
+    if (externalId) {
       await db
         .from('communications')
-        .update({
-          status: 'sent',
-          external_id: sendRes.messageId,
-          sent_at: new Date().toISOString(),
-        })
+        .update({ status: 'sent', external_id: externalId, sent_at: now() })
         .eq('id', commId);
       result.recipients.push({
         participantId: pid,
-        to: participant.email,
+        to: contact,
         subject,
         body,
         status: 'sent',
-        externalId: sendRes.messageId,
+        externalId,
       });
       result.sent += 1;
     } else {
       await db
         .from('communications')
-        .update({ status: 'failed', error: sendRes.error })
+        .update({ status: 'failed', error: errorMsg ?? 'unknown' })
         .eq('id', commId);
       result.recipients.push({
         participantId: pid,
-        to: participant.email,
+        to: contact,
         subject,
         body,
         status: 'failed',
-        error: sendRes.error,
+        error: errorMsg,
       });
       result.failed += 1;
     }

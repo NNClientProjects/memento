@@ -90,42 +90,77 @@ export default async function BulkSendPage({
       <nav className="mb-4 text-sm text-zinc-500">
         <Link
           href={backHref}
-          className="hover:text-zinc-900 dark:hover:text-zinc-100"
+          className="inline-flex items-center gap-1 hover:text-zinc-900 dark:hover:text-zinc-100"
         >
-          ← Back to participants
+          <span aria-hidden="true">←</span> Back to participants
         </Link>
       </nav>
 
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Bulk email</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {dedupedRecipients.length} recipient
-          {dedupedRecipients.length === 1 ? '' : 's'}
-          {skippedNoEmail > 0 && (
-            <> · {skippedNoEmail} excluded (no email)</>
-          )}
-          {skippedOptOut > 0 && (
-            <> · {skippedOptOut} excluded (opted out)</>
-          )}
-          {skippedDuplicates > 0 && (
-            <> · {skippedDuplicates} de-duped by email</>
-          )}
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight">Bulk email</h1>
+          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium tabular-nums text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900">
+            {dedupedRecipients.length}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-zinc-500">
+          recipient{dedupedRecipients.length === 1 ? '' : 's'}
         </p>
+        {(skippedNoEmail > 0 || skippedOptOut > 0 || skippedDuplicates > 0) && (
+          <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+            {skippedNoEmail > 0 && (
+              <ExclusionPill>{skippedNoEmail} no email</ExclusionPill>
+            )}
+            {skippedOptOut > 0 && (
+              <ExclusionPill>{skippedOptOut} opted out</ExclusionPill>
+            )}
+            {skippedDuplicates > 0 && (
+              <ExclusionPill>{skippedDuplicates} duplicate emails</ExclusionPill>
+            )}
+          </ul>
+        )}
       </header>
 
       {dedupedRecipients.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          No recipients match (none with email). Adjust the filter.
-        </p>
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-12 text-center dark:border-zinc-700 dark:bg-zinc-900/30">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-800">
+            <svg
+              className="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m4 8 8 5 8-5" />
+              <rect width="20" height="14" x="2" y="6" rx="2" />
+            </svg>
+          </div>
+          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            No-one to email
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Loosen the filter on{' '}
+            <Link href={backHref} className="underline">
+              Participants
+            </Link>{' '}
+            and try again.
+          </p>
+        </div>
       ) : (
         <>
-          <section className="mb-6 rounded-lg border border-zinc-200 dark:border-zinc-800">
-            <h2 className="border-b border-zinc-200 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800">
+          <section className="mb-6 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+            <h2 className="border-b border-zinc-200 bg-zinc-50/60 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
               Recipients
             </h2>
             <ul className="max-h-72 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-900">
               {dedupedRecipients.map((r) => (
-                <li key={r.id} className="flex items-baseline gap-3 px-4 py-1.5 text-sm">
+                <li
+                  key={r.id}
+                  className="flex items-baseline gap-3 px-4 py-2 text-sm"
+                >
                   <Link
                     href={`/participants/${r.id}`}
                     className="font-medium hover:underline"
@@ -141,16 +176,20 @@ export default async function BulkSendPage({
           </section>
 
           {dedupedRecipients.length > MAX_RECIPIENTS_PER_SEND && (
-            <div className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              Phase 1 cap is {MAX_RECIPIENTS_PER_SEND} recipients per send.
-              Apply a tighter filter to send to fewer than that, or send in
-              batches (sort + filter to slice).
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className="font-medium">
+                Over the per-send cap ({MAX_RECIPIENTS_PER_SEND})
+              </p>
+              <p className="mt-1 text-xs">
+                Apply a tighter filter to send to fewer at a time, or send in
+                batches.
+              </p>
             </div>
           )}
 
-          <section className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-            <h2 className="border-b border-zinc-200 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800">
-              Send
+          <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+            <h2 className="border-b border-zinc-200 bg-zinc-50/60 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
+              Pick a template and send
             </h2>
             <div className="p-4">
               <BulkSendForm
@@ -163,5 +202,13 @@ export default async function BulkSendPage({
         </>
       )}
     </main>
+  );
+}
+
+function ExclusionPill({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+      {children}
+    </li>
   );
 }

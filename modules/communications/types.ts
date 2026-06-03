@@ -15,6 +15,7 @@ export type Template = {
   body: string;
   merge_fields: string[];
   provider_template_id: string | null;
+  provider_language_code: string;
   status: TemplateStatus;
   created_at: string;
   updated_at: string;
